@@ -205,6 +205,9 @@ if pulp.LpStatus[status] == 'Optimal':
     st.pyplot(fig, width="stretch")
 else:
     st.error("The defined mandates exceed the total budget. Please adjust sliders.")
-
+# In your get_model function:
+def get_model(path):
+    return keras.models.load_model(path, compile=False, safe_mode=False)
 
 st.caption(f"v1.2.0 | Regional Context: {region} | Data Refresh: Jan 2026")
+
