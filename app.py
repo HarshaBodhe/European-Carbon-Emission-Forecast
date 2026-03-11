@@ -143,39 +143,34 @@ else:
 # ---------------------------
 # OPTIMIZATION ENGINE (PuLP) - DYNAMIC & PROFESSIONAL
 # ---------------------------
+# OPTIMIZATION ENGINE - UPDATED FOR BALANCED ALLOCATION
 st.divider()
-st.subheader("🏙️ Strategic Budget Allocation (Prescriptive Layer)")
+st.subheader("🏙️ Strategic Budget Allocation")
 
 s1, s2, s3, s4 = st.columns(4)
-with s1:
-    budget = s1.slider("Total Climate Budget (€M)", 50, 500, 165)
-with s2:
-    min_green = s2.slider("Min. Renewable Mandate (€M)", 10, 200, 50)
-with s3:
-    # Resolves the 'static 5%' problem: Dynamic Mandate for Buildings
-    min_build = s3.slider("Min. Buildings Mandate (€M)", 10, 150, 30)
-with s4:
-    max_trans = s4.slider("Max. Transport Cap (€M)", 20, 200, 80)
+with s1: budget = st.slider("Total Budget (€M)", 50, 500, 165)
+with s2: min_green = st.slider("Min. Renewables (€M)", 10, 100, 30)
+with s3: min_build = st.slider("Min. Buildings (€M)", 10, 100, 20)
+# Added sliders for Transport and Waste minimums to give you control
+with s4: min_trans = st.slider("Min. Transport (€M)", 10, 100, 15)
 
-# Optimization Setup
+# Linear Programming with PuLP
 prob = pulp.LpProblem("Budget_Optimization", pulp.LpMaximize)
 
-# Decision Variables
+# Define variables with a "Floor" (Minimum) so they never hit zero
 r = pulp.LpVariable("Renewables", lowBound=min_green)
-t = pulp.LpVariable("Transport", lowBound=0, upBound=max_trans)
-b = pulp.LpVariable("Buildings", lowBound=min_build) # Responsive to slider
-w = pulp.LpVariable("Waste", lowBound=0)
+t = pulp.LpVariable("Transport", lowBound=min_trans) 
+b = pulp.LpVariable("Buildings", lowBound=min_build)
+w = pulp.LpVariable("Waste", lowBound=5) # Hardcoded 5M minimum for Waste
 
-# Objective Function: High Weights for Professional Allocation
-# Buildings given 0.85 to ensure it competes fairly with Renewables (0.9)
-prob += 0.9*r + 0.7*t + 0.85*b + 0.4*w
+# Adjusted Objective: Weights are closer to encourage spreading the budget
+# Efficiency: Renewables (0.9), Buildings (0.8), Transport (0.75), Waste (0.6)
+prob += 0.9*r + 0.8*b + 0.75*t + 0.6*w
 
-# Constraints
+# Constraint: Sum of all sectors must equal the budget
 prob += r + t + b + w <= budget
 
-# Solve
 status = prob.solve(pulp.PULP_CBC_CMD(msg=0))
-
 if pulp.LpStatus[status] == 'Optimal':
     # Professional Metrics
     res_cols = st.columns(4)
@@ -210,4 +205,5 @@ def get_model(path):
     return keras.models.load_model(path, compile=False, safe_mode=False)
 
 st.caption(f"v1.2.0 | Regional Context: {region} | Data Refresh: Jan 2026")
+
 
