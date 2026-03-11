@@ -128,72 +128,74 @@ else:
 # ---------------------------
 # OPTIMIZATION ENGINE (PuLP) - DYNAMIC ALLOCATION
 # ---------------------------
+# ---------------------------
+# OPTIMIZATION ENGINE (PuLP) - FULLY DYNAMIC
+# ---------------------------
 st.divider()
 st.subheader("🏙️ Strategic Budget Allocation")
-st.write("Adjust mandates to see how the AI re-allocates the surplus budget to the most efficient sectors.")
+st.write("Adjust mandates to see how the AI re-allocates the surplus budget.")
 
-# 4 Columns for Dynamic Sliders
+# 1. Create 4 sliders for the 4 sectors
 s1, s2, s3, s4 = st.columns(4)
 with s1: 
     budget = st.slider("Total Budget (€M)", 50, 500, 205)
 with s2: 
     min_green = st.slider("Min. Renewables (€M)", 0, 100, 47)
 with s3: 
-    # NEW: Transport Slider (Replacing the old fixed value)
-    min_trans = st.slider("Min. Transport (€M)", 0, 100, 32)
+    min_trans = st.slider("Min. Transport (€M)", 0, 100, 32) # Fixed variable name
 with s4: 
-    min_waste = st.slider("Min. Waste Mandate (€M)", 0, 50, 15)
+    min_waste = st.slider("Min. Waste (€M)", 0, 50, 15)
 
-# Then update the PuLP variable to use that slider value:
-t = pulp.LpVariable("Transport", lowBound=min_trans)
-# Constraint check
-if (min_green + min_build + min_waste + 15) > budget: # 15 is a default for transport
-    st.error("⚠️ Mandates exceed total budget! Increase total budget or lower minimums.")
+# 2. Add a hidden or fixed mandate for Buildings so it doesn't break
+min_build = 20 
+
+# 3. Constraint check: Ensure the sum of mandates doesn't exceed total budget
+total_mandates = min_green + min_trans + min_waste + min_build
+
+if total_mandates > budget:
+    st.error(f"⚠️ Mandates ({total_mandates}M) exceed total budget ({budget}M)! Please reduce minimums.")
 else:
     # Linear Programming with PuLP
     prob = pulp.LpProblem("Budget_Optimization", pulp.LpMaximize)
 
     # Variables link directly to the sliders
     r = pulp.LpVariable("Renewables", lowBound=min_green)
+    t = pulp.LpVariable("Transport", lowBound=min_trans) 
     b = pulp.LpVariable("Buildings", lowBound=min_build)
-    t = pulp.LpVariable("Transport", lowBound=15) # Standard 15M floor for transport
-    w = pulp.LpVariable("Waste", lowBound=min_waste) # Dynamic Waste!
+    w = pulp.LpVariable("Waste", lowBound=min_waste)
 
-    # Efficiency Weights (Renewables are highest, Waste is lowest)
+    # Objective: Maximize CO2 reduction based on efficiency weights
     prob += 0.9*r + 0.8*b + 0.75*t + 0.6*w
 
-    # Budget Constraint
+    # Constraint: Sum of all must be less than or equal to budget
     prob += r + t + b + w <= budget
 
     status = prob.solve(pulp.PULP_CBC_CMD(msg=0))
 
     if pulp.LpStatus[status] == 'Optimal':
+        # Professional Metrics display
         res_cols = st.columns(4)
         res_cols[0].metric("Renewables", f"€{r.value():.1f}M")
         res_cols[1].metric("Buildings", f"€{b.value():.1f}M")
         res_cols[2].metric("Transport", f"€{t.value():.1f}M")
         res_cols[3].metric("Waste", f"€{w.value():.1f}M")
 
-        impact = (0.9*r.value() + 0.75*t.value() + 0.8*b.value() + 0.6*w.value())
+        impact = (0.9*r.value() + 0.8*b.value() + 0.75*t.value() + 0.6*w.value())
         st.success(f"✅ **Total Estimated CO₂ Reduction Potential:** {impact:.2f} tons")
 
-        # Dynamic Allocation Visual
-        fig, ax = plt.subplots(figsize=(10, 2), dpi=100)
+        # Visual Bar Chart
+        fig, ax = plt.subplots(figsize=(10, 2))
         vals = [r.value(), t.value(), b.value(), w.value()]
         labels = ['Renewables', 'Transport', 'Buildings', 'Waste']
         colors = ['#2ecc71', '#3498db', '#9b59b6', '#f1c40f']
         
         start = 0
         for val, lab, col in zip(vals, labels, colors):
-            if val > 0:
-                ax.barh(["Allocation"], [val], left=start, color=col, label=lab)
-                start += val
+            ax.barh(["Allocation"], [val], left=start, color=col, label=lab)
+            start += val
         
         ax.set_xlim(0, budget)
-        ax.legend(loc='lower center', bbox_to_anchor=(0.5, -1.1), ncol=4, frameon=False)
-        ax.set_xlabel("Investment (€ Million)")
+        ax.legend(loc='lower center', bbox_to_anchor=(0.5, -1.2), ncol=4, frameon=False)
         st.pyplot(fig)
-
-st.divider()
 
 
