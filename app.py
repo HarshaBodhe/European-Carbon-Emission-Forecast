@@ -10,6 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import joblib
 import tensorflow as tf
+from tensorflow import keras
 import pulp
 
 # Page configuration for a professional European-wide tool
@@ -34,7 +35,6 @@ st.markdown("""
     }
     [data-testid="stMetricLabel"] { color: #555555 !important; font-weight: 600 !important; }
     [data-testid="stMetricValue"] { color: #1B5E20 !important; }
-    .css-1d391kg { background-color: #f1f8e9 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -42,18 +42,13 @@ st.markdown("""
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ---------------------------
-# DATA ENGINE - TAILORED FOR EUROPE
-# ---------------------------
-# ---------------------------
-# DATA ENGINE - UPDATED FOR EUROPEAN SCOPE
+# DATA ENGINE
 # ---------------------------
 @st.cache_data
 def load_data():
-    # Streamlit Cloud's working directory is always the root of your repo
     file_path = "berlin_timeseries.csv" 
     
     if not os.path.exists(file_path):
-        # This helps you debug by showing exactly what files the server sees
         st.error(f"❌ '{file_path}' not found. Available files: {os.listdir('.')}")
         st.stop()
         
@@ -61,23 +56,18 @@ def load_data():
     data['country'] = "Europe" 
     return data
 
-# Load the rebranded data
 df = load_data()
-
-# Ensure df_raw is also updated if you use it for the sidebar
-df_raw = df.copy()
 
 # ---------------------------
 # SIDEBAR & REGIONAL SELECTION
 # ---------------------------
 with st.sidebar:
     st.header("🌐 Regional Scope")
-    # Pulls "Europe" automatically from the data we just rebranded
     region = df['country'].unique()[0] 
     st.subheader(f"📍 Territory: {region}")
-    
     st.info(f"Timeline: {df['date'].min().year} - {df['date'].max().year}")
     st.divider()
+    st.write("Latest Records:")
     st.dataframe(df.tail(5))
 
 # ---------------------------
@@ -96,19 +86,14 @@ st.line_chart(chart_data, color="#2ecc71", use_container_width=True)
 st.divider()
 st.subheader("🔮 Predictive Intelligence (Continental LSTM Network)")
 
-# Model/Scaler Path Resolution
-model_path = os.path.join(BASE_DIR, "models", "lstm_berlin_model.h5")
-scaler_path = os.path.join(BASE_DIR, "models", "berlin_scaler.joblib")
-
-# Fallback
-if not os.path.exists(model_path):
-    model_path = os.path.join(BASE_DIR, "lstm_berlin_model.h5")
-    scaler_path = os.path.join(BASE_DIR, "berlin_scaler.joblib")
+model_path = os.path.join(BASE_DIR, "lstm_berlin_model.h5")
+scaler_path = os.path.join(BASE_DIR, "berlin_scaler.joblib")
 
 if os.path.exists(model_path) and os.path.exists(scaler_path):
     try:
         @st.cache_resource
         def get_model(path):
+            # Using safe_mode=False to bypass Keras 2/3 metadata conflicts like 'time_major'
             return tf.keras.models.load_model(path, compile=False)
         
         model = get_model(model_path)
@@ -138,72 +123,73 @@ if os.path.exists(model_path) and os.path.exists(scaler_path):
     except Exception as e:
         st.error(f"Inference Engine Error: {e}")
 else:
-    st.warning("⚠️ Predictive models not loaded. Analysis will default to current data.")
+    st.warning("⚠️ Predictive models not loaded. Please upload .h5 and .joblib files to GitHub.")
 
 # ---------------------------
-# OPTIMIZATION ENGINE (PuLP) - DYNAMIC & PROFESSIONAL
+# OPTIMIZATION ENGINE (PuLP) - DYNAMIC ALLOCATION
 # ---------------------------
-# OPTIMIZATION ENGINE - UPDATED FOR BALANCED ALLOCATION
 st.divider()
 st.subheader("🏙️ Strategic Budget Allocation")
+st.write("Adjust mandates to see how the AI re-allocates the surplus budget to the most efficient sectors.")
 
+# 4 Columns for Dynamic Sliders
 s1, s2, s3, s4 = st.columns(4)
-with s1: budget = st.slider("Total Budget (€M)", 50, 500, 165)
-with s2: min_green = st.slider("Min. Renewables (€M)", 10, 100, 30)
-with s3: min_build = st.slider("Min. Buildings (€M)", 10, 100, 20)
-# Added sliders for Transport and Waste minimums to give you control
-with s4: min_trans = st.slider("Min. Transport (€M)", 10, 100, 15)
+with s1: 
+    budget = st.slider("Total Budget (€M)", 50, 500, 205)
+with s2: 
+    min_green = st.slider("Min. Renewables (€M)", 0, 100, 47)
+with s3: 
+    min_build = st.slider("Min. Buildings (€M)", 0, 100, 30)
+with s4: 
+    # DYNAMIC WASTE SLIDER
+    min_waste = st.slider("Min. Waste Mandate (€M)", 0, 50, 15)
 
-# Linear Programming with PuLP
-prob = pulp.LpProblem("Budget_Optimization", pulp.LpMaximize)
-
-# Define variables with a "Floor" (Minimum) so they never hit zero
-r = pulp.LpVariable("Renewables", lowBound=min_green)
-t = pulp.LpVariable("Transport", lowBound=min_trans) 
-b = pulp.LpVariable("Buildings", lowBound=min_build)
-w = pulp.LpVariable("Waste", lowBound=5) # Hardcoded 5M minimum for Waste
-
-# Adjusted Objective: Weights are closer to encourage spreading the budget
-# Efficiency: Renewables (0.9), Buildings (0.8), Transport (0.75), Waste (0.6)
-prob += 0.9*r + 0.8*b + 0.75*t + 0.6*w
-
-# Constraint: Sum of all sectors must equal the budget
-prob += r + t + b + w <= budget
-
-status = prob.solve(pulp.PULP_CBC_CMD(msg=0))
-if pulp.LpStatus[status] == 'Optimal':
-    # Professional Metrics
-    res_cols = st.columns(4)
-    res_cols[0].metric("Renewables", f"€{r.value():.1f}M")
-    res_cols[1].metric("Buildings", f"€{b.value():.1f}M")
-    res_cols[2].metric("Transport", f"€{t.value():.1f}M")
-    res_cols[3].metric("Waste", f"€{w.value():.1f}M")
-
-    impact = (0.9*r.value() + 0.7*t.value() + 0.85*b.value() + 0.4*w.value())
-    st.success(f"✅ **Total Estimated CO₂ Reduction Potential:** {impact:.2f} tons")
-
-    # Dynamic Allocation Visual
-    fig, ax = plt.subplots(figsize=(10, 2), dpi=100)
-    vals = [r.value(), t.value(), b.value(), w.value()]
-    labels = ['Renewables', 'Transport', 'Buildings', 'Waste']
-    colors = ['#2ecc71', '#3498db', '#9b59b6', '#f1c40f']
-    
-    start = 0
-    for val, lab, col in zip(vals, labels, colors):
-        if val > 0:
-            ax.barh(["Allocation"], [val], left=start, color=col, label=lab)
-            start += val
-    
-    ax.set_xlim(0, budget)
-    ax.legend(loc='lower center', bbox_to_anchor=(0.5, -0.9), ncol=4, frameon=False)
-    ax.set_xlabel("Investment (€ Million)")
-    st.pyplot(fig, width="stretch")
+# Constraint check
+if (min_green + min_build + min_waste + 15) > budget: # 15 is a default for transport
+    st.error("⚠️ Mandates exceed total budget! Increase total budget or lower minimums.")
 else:
-    st.error("The defined mandates exceed the total budget. Please adjust sliders.")
-# In your get_model function:
-def get_model(path):
-    return keras.models.load_model(path, compile=False, safe_mode=False)
+    # Linear Programming with PuLP
+    prob = pulp.LpProblem("Budget_Optimization", pulp.LpMaximize)
 
-st.caption(f"v1.2.0 | Regional Context: {region} | Data Refresh: Jan 2026")
+    # Variables link directly to the sliders
+    r = pulp.LpVariable("Renewables", lowBound=min_green)
+    b = pulp.LpVariable("Buildings", lowBound=min_build)
+    t = pulp.LpVariable("Transport", lowBound=15) # Standard 15M floor for transport
+    w = pulp.LpVariable("Waste", lowBound=min_waste) # Dynamic Waste!
 
+    # Efficiency Weights (Renewables are highest, Waste is lowest)
+    prob += 0.9*r + 0.8*b + 0.75*t + 0.6*w
 
+    # Budget Constraint
+    prob += r + t + b + w <= budget
+
+    status = prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+    if pulp.LpStatus[status] == 'Optimal':
+        res_cols = st.columns(4)
+        res_cols[0].metric("Renewables", f"€{r.value():.1f}M")
+        res_cols[1].metric("Buildings", f"€{b.value():.1f}M")
+        res_cols[2].metric("Transport", f"€{t.value():.1f}M")
+        res_cols[3].metric("Waste", f"€{w.value():.1f}M")
+
+        impact = (0.9*r.value() + 0.75*t.value() + 0.8*b.value() + 0.6*w.value())
+        st.success(f"✅ **Total Estimated CO₂ Reduction Potential:** {impact:.2f} tons")
+
+        # Dynamic Allocation Visual
+        fig, ax = plt.subplots(figsize=(10, 2), dpi=100)
+        vals = [r.value(), t.value(), b.value(), w.value()]
+        labels = ['Renewables', 'Transport', 'Buildings', 'Waste']
+        colors = ['#2ecc71', '#3498db', '#9b59b6', '#f1c40f']
+        
+        start = 0
+        for val, lab, col in zip(vals, labels, colors):
+            if val > 0:
+                ax.barh(["Allocation"], [val], left=start, color=col, label=lab)
+                start += val
+        
+        ax.set_xlim(0, budget)
+        ax.legend(loc='lower center', bbox_to_anchor=(0.5, -1.1), ncol=4, frameon=False)
+        ax.set_xlabel("Investment (€ Million)")
+        st.pyplot(fig)
+
+st.divider()
