@@ -126,65 +126,58 @@ else:
     st.warning("⚠️ Predictive models not loaded. Please upload .h5 and .joblib files to GitHub.")
 
 # ---------------------------
-# OPTIMIZATION ENGINE (PuLP) - DYNAMIC ALLOCATION
 # ---------------------------
-# ---------------------------
-# OPTIMIZATION ENGINE (PuLP) - FULLY DYNAMIC
+# OPTIMIZATION ENGINE - 100% DYNAMIC
 # ---------------------------
 st.divider()
 st.subheader("🏙️ Strategic Budget Allocation")
-st.write("Adjust mandates to see how the AI re-allocates the surplus budget.")
+st.write("Adjust mandates for EVERY sector. The AI will prioritize the most efficient use of the surplus.")
 
-# 1. Create 4 sliders for the 4 sectors
-s1, s2, s3, s4 = st.columns(4)
+# 1. Row of 5 sliders so everything is adjustable
+s1, s2, s3, s4, s5 = st.columns(5)
 with s1: 
     budget = st.slider("Total Budget (€M)", 50, 500, 205)
 with s2: 
-    min_green = st.slider("Min. Renewables (€M)", 0, 100, 47)
+    min_green = st.slider("Min. Renewables (€M)", 0, 100, 40)
 with s3: 
-    min_trans = st.slider("Min. Transport (€M)", 0, 100, 32) # Fixed variable name
+    min_trans = st.slider("Min. Transport (€M)", 0, 100, 30)
 with s4: 
-    min_waste = st.slider("Min. Waste (€M)", 0, 50, 15)
+    min_build = st.slider("Min. Buildings (€M)", 0, 100, 30)
+with s5: 
+    min_waste = st.slider("Min. Waste (€M)", 0, 100, 10)
 
-# 2. Add a hidden or fixed mandate for Buildings so it doesn't break
-min_build = 20 
-
-# 3. Constraint check: Ensure the sum of mandates doesn't exceed total budget
-total_mandates = min_green + min_trans + min_waste + min_build
+# 2. Logic Check
+total_mandates = min_green + min_trans + min_build + min_waste
 
 if total_mandates > budget:
-    st.error(f"⚠️ Mandates ({total_mandates}M) exceed total budget ({budget}M)! Please reduce minimums.")
+    st.error(f"⚠️ Mandates ({total_mandates}M) exceed Budget ({budget}M). Increase budget or lower mandates!")
 else:
-    # Linear Programming with PuLP
-    prob = pulp.LpProblem("Budget_Optimization", pulp.LpMaximize)
+    prob = pulp.LpProblem("Dynamic_Optimization", pulp.LpMaximize)
 
-    # Variables link directly to the sliders
+    # Variables link to ALL sliders
     r = pulp.LpVariable("Renewables", lowBound=min_green)
     t = pulp.LpVariable("Transport", lowBound=min_trans) 
     b = pulp.LpVariable("Buildings", lowBound=min_build)
     w = pulp.LpVariable("Waste", lowBound=min_waste)
 
-    # Objective: Maximize CO2 reduction based on efficiency weights
+    # 3. The Objective (Efficiency weights)
     prob += 0.9*r + 0.8*b + 0.75*t + 0.6*w
 
-    # Constraint: Sum of all must be less than or equal to budget
+    # 4. The Budget Limit
     prob += r + t + b + w <= budget
 
     status = prob.solve(pulp.PULP_CBC_CMD(msg=0))
 
     if pulp.LpStatus[status] == 'Optimal':
-        # Professional Metrics display
+        # Display results
         res_cols = st.columns(4)
         res_cols[0].metric("Renewables", f"€{r.value():.1f}M")
         res_cols[1].metric("Buildings", f"€{b.value():.1f}M")
         res_cols[2].metric("Transport", f"€{t.value():.1f}M")
         res_cols[3].metric("Waste", f"€{w.value():.1f}M")
 
-        impact = (0.9*r.value() + 0.8*b.value() + 0.75*t.value() + 0.6*w.value())
-        st.success(f"✅ **Total Estimated CO₂ Reduction Potential:** {impact:.2f} tons")
-
-        # Visual Bar Chart
-        fig, ax = plt.subplots(figsize=(10, 2))
+        # Visual Chart
+        fig, ax = plt.subplots(figsize=(10, 2.5))
         vals = [r.value(), t.value(), b.value(), w.value()]
         labels = ['Renewables', 'Transport', 'Buildings', 'Waste']
         colors = ['#2ecc71', '#3498db', '#9b59b6', '#f1c40f']
@@ -195,7 +188,5 @@ else:
             start += val
         
         ax.set_xlim(0, budget)
-        ax.legend(loc='lower center', bbox_to_anchor=(0.5, -1.2), ncol=4, frameon=False)
+        ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.5), ncol=4)
         st.pyplot(fig)
-
-
