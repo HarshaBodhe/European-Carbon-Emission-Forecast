@@ -139,11 +139,11 @@ with s1:
 with s2: 
     min_green = st.slider("Min. Renewables (€M)", 0, 100, 47)
 with s3: 
-    min_build = st.slider("Min. Buildings (€M)", 0, 100, 30)
+    min_build = st.slider("Min. Buildings (€M)", 0, 100, 32)
 with s4: 
     # DYNAMIC WASTE SLIDER
     min_waste = st.slider("Min. Waste Mandate (€M)", 0, 50, 15)
-
+t = pulp.LpVariable("Transport", lowBound=min_trans)
 # Constraint check
 if (min_green + min_build + min_waste + 15) > budget: # 15 is a default for transport
     st.error("⚠️ Mandates exceed total budget! Increase total budget or lower minimums.")
@@ -193,3 +193,4 @@ else:
         st.pyplot(fig)
 
 st.divider()
+
