@@ -49,21 +49,16 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # ---------------------------
 @st.cache_data
 def load_data():
-    # Keep using the berlin file as your data source, but we will "rebrand" it below
-    file_path = os.path.join(BASE_DIR, "berlin_timeseries.csv") 
+    # Streamlit Cloud's working directory is always the root of your repo
+    file_path = "berlin_timeseries.csv" 
     
     if not os.path.exists(file_path):
-        st.error("❌ Dataset not found. Please verify the file path.")
+        # This helps you debug by showing exactly what files the server sees
+        st.error(f"❌ '{file_path}' not found. Available files: {os.listdir('.')}")
         st.stop()
         
-    # Load the actual data
     data = pd.read_csv(file_path, parse_dates=["date"])
-    
-    # --- THE "EUROPE" FIX ---
-    # This forces the 'country' column to say 'Europe'. 
-    # Because your Sidebar and Titles use df['country'], they will all update instantly.
     data['country'] = "Europe" 
-    
     return data
 
 # Load the rebranded data
@@ -210,5 +205,6 @@ if pulp.LpStatus[status] == 'Optimal':
     st.pyplot(fig, width="stretch")
 else:
     st.error("The defined mandates exceed the total budget. Please adjust sliders.")
+
 
 st.caption(f"v1.2.0 | Regional Context: {region} | Data Refresh: Jan 2026")
